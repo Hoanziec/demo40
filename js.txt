@@ -1,0 +1,176 @@
+const state={name:'',completed:new Set(),answers:{},idea:{},layers:{}};let current=1,t1Timer=null,t2Timer=null;const screens=21;
+function $(id){return document.getElementById(id)}
+function setBadges(){for(let i=2;i<=21;i++)if($('b'+i))$('b'+i).textContent=state.name?'👤 '+state.name:'';if($('finalName'))$('finalName').textContent=state.name||'Học sinh'}
+function stageFor(n){if(n===1)return 1;if(n>=2&&n<=5)return 2;if(n>=6&&n<=17)return 3;if(n>=18)return 4;return 1}
+function updateStageNav(){const stage=stageFor(current);const ids=[['stageHome',1],['stageChallenge',2],['stageExplore',6],['stageIdea',18]];ids.forEach(([id,num],idx)=>{const b=$(id);if(!b)return;b.classList.toggle('active',idx+1===stage);const done=idx===0?state.completed.has(1):idx===1?state.completed.has(3):idx===2?state.completed.has(17):state.completed.has(21);b.classList.toggle('done',done);b.disabled=idx===0?false:idx===1?!state.completed.has(1):idx===2?!state.completed.has(17):!state.completed.has(17);})}
+function stageGo(n){if(n===1){navigate(1);return}const unlock=n===2?state.completed.has(1):n===6?state.completed.has(17):n===18?state.completed.has(17):false;if(unlock){navigate(n);return}toast('Em phải hoàn thành toàn bộ phần trước rồi mới được sang phần tiếp theo nhé.')}
+function navigate(n){
+  if(n<1||n>screens)return;
+  if(n>current&&!state.completed.has(current)){
+    toast('Em hãy hoàn thành trang hiện tại trước khi sang trang tiếp theo nhé.');
+    return;
+  }
+  const sec=$('s'+n);
+  if(!sec)return;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  sec.classList.add('active');
+  current=n;
+  setBadges();
+  updateStageNav();
+  addBackButton(n);
+  scrollTo({top:0,behavior:'smooth'});
+  if(n===2)initVideo();
+  if(n===6)initVideo2();
+  if(n===10)initN1Video();
+  if(n===19)renderChosen();
+  if(n===17&&state.completed.has(17))$('t3conclusion').style.display='block';
+}
+function show(n){if(n===1){navigate(1);return}if(!state.completed.has(n)){toast('Em phải hoàn thành trang trước rồi mới được sang trang sau nhé.');return}navigate(n)}
+function completeTo(n){
+  if(!document.getElementById('s'+n)){toast('Không tìm thấy trang tiếp theo.');return}
+  if(n!==current+1 && !(current===3&&n===6)){
+    toast('Bài học phải được thực hiện theo đúng thứ tự.');
+    return;
+  }
+  if(!state.completed.has(current)){
+    toast('Em hãy hoàn thành trang hiện tại trước nhé.');
+    return;
+  }
+  saveProgress();
+  navigate(n);
+}
+const nextTargets={2:3,3:6,6:7,7:8,8:9,9:10,10:11,11:12,12:13,13:14,14:15,15:16,16:17,17:18,18:19,19:20,20:21};
+function prepareNextButtons(){
+  Object.entries(nextTargets).forEach(([page,target])=>{
+    const sec=$('s'+page); if(!sec)return;
+    if(sec.querySelector('.next-step'))return;
+    const buttons=[...sec.querySelectorAll('button.btn:not(.back-btn)')];
+    if(!buttons.length)return;
+    const action=buttons[buttons.length-1];
+    const row=document.createElement('div'); row.className='action-row';
+    action.parentNode.insertBefore(row,action); row.appendChild(action);
+    const next=document.createElement('button'); next.type='button'; next.className='btn next-step'; next.textContent='Tiếp tục ›';
+    next.dataset.target=target; next.disabled=true; next.onclick=()=>completeTo(target); row.appendChild(next);
+    if(state.completed.has(Number(page))){next.disabled=false;next.classList.add('ready');}
+  });
+}
+function enableNext(page,label){
+  const b=$('s'+page)?.querySelector('.next-step');
+  if(!b)return;
+  b.disabled=false; b.classList.add('ready'); if(label)b.textContent=label;
+}
+function start(){const n=$('studentName').value.trim();if(!n){toast('Em hãy nhập tên hoặc mã học sinh.');return}state.name=n;state.completed=new Set([1]);state.answers={};state.idea={};state.layers={};seenLayers=new Set();saveProgress();setBadges();navigate(2)}
+function initVideo(){const v=$('video1'),b=$('videoNext');if(!v||!b)return;if(state.completed.has(2)){b.disabled=false;b.textContent='✓ Đã xem hết video';enableNext(2);return}if(!v.dataset.ready){v.dataset.ready='1';v.addEventListener('ended',()=>{state.completed.add(2);saveProgress();b.disabled=false;b.textContent='✓ Đã xem hết video';enableNext(2);toast('Video đã kết thúc. Em có thể bấm Tiếp tục.')});v.addEventListener('error',()=>{b.disabled=true;b.textContent='Không tải được video';toast('Video chưa tải được. Kiểm tra file video1.mp4 nằm cùng cấp với index.html trong GitHub.')});}v.load()}
+function initVideo2(){const v=$('video2'),b=$('video2next');if(!v||!b)return;if(state.completed.has(6)){b.disabled=false;b.textContent='✓ Đã xem hết video';enableNext(6);return}if(!v.dataset.ready){v.dataset.ready='1';v.addEventListener('ended',()=>{state.completed.add(6);saveProgress();b.disabled=false;b.textContent='✓ Đã xem hết video';enableNext(6);$('video2fb').innerHTML='<span class="ok">✓ Đã xem xong video 2.</span> Em có thể bấm Tiếp tục.'});v.addEventListener('error',()=>{b.disabled=true;b.textContent='Không tải được video';$('video2fb').innerHTML='<span class="bad">✗ Không tải được video 2.</span> Kiểm tra file video2.mp4 nằm cùng cấp với index.html trong GitHub.'});}v.load()}
+
+function recordChallengeAll(){const r1=document.querySelector('input[name=ch1]:checked'),r3=document.querySelector('input[name=ch3]:checked'),v2=$('ch2').value.trim();if(!r1||!v2||!r3){toast('Em hãy trả lời đủ 3 câu hỏi trước nhé.');return}state.answers.challenge1=r1.value;state.answers.challenge2=v2;state.answers.challenge3=r3.value;state.completed.add(3);saveProgress();document.querySelectorAll('#s3 input').forEach(i=>i.disabled=true);$('challengeConclusion').style.display='block';$('challengeBtn').textContent='✓ Đã ghi nhận';enableNext(3)}
+function saveN1Pred(){const r=document.querySelector('input[name=n1pred]:checked');if(!r){toast('Em hãy chọn một dự đoán.');return}state.answers.n1pred=r.value;$('n1predfb').innerHTML='<span class="ok">✓ Đã ghi nhận dự đoán.</span> Website chưa công bố đáp án. Hãy tiếp tục để kiểm chứng nhé!';document.querySelectorAll('input[name=n1pred]').forEach(i=>i.disabled=true);state.completed.add(7);saveProgress();document.querySelector('#s7 .btn').textContent='✓ Đã ghi nhận dự đoán';enableNext(7)}
+function checkN1Q1(){const r=document.querySelector('input[name=n1q1]:checked');if(!r){toast('Em hãy chọn một phương án.');return}state.answers.n1q1=r.value;const f={A:'<span class="bad">Chưa đúng!</span> Em cần đặt các thìa vào cùng một nguồn nước ấm để kết quả công bằng nhé!',B:'<span class="ok">Chính xác!</span> Đặt cả ba thìa vào cùng một cốc nước ấm để so sánh.',C:'<span class="bad">Thử lại nhé!</span> Cần nhiều hơn một chiếc thìa mới so sánh được khả năng dẫn nhiệt.'};['A','B','C'].forEach(x=>$('n1q1'+x).innerHTML=x===r.value?f[x]:'');if(r.value==='B'){state.completed.add(8);saveProgress();document.querySelector('#s8 .btn').textContent='✓ Đã kiểm tra – đáp án đúng';enableNext(8)}}
+function checkN1Q2(){const r=document.querySelector('input[name=n1q2]:checked');if(!r){toast('Em hãy chọn một phương án.');return}state.answers.n1q2=r.value;const f={A:'<span class="ok">Rất tốt!</span> Giữ các điều kiện giống nhau giúp kết quả so sánh chính xác hơn.',B:'<span class="bad">Chưa đúng!</span> Các thìa cần có kích thước gần giống nhau và thời gian quan sát bằng nhau nhé!',C:'<span class="bad">Thử lại nhé!</span> Nhiệt độ nước cần giống nhau để kết quả so sánh công bằng.'};['A','B','C'].forEach(x=>$('n1q2'+x).innerHTML=x===r.value?f[x]:'');if(r.value==='A'){state.completed.add(9);saveProgress();document.querySelector('#s9 .btn').textContent='✓ Đã kiểm tra – đáp án đúng';enableNext(9)}}
+function initN1Video(){const v=$('n1video');if(!v)return;if(!v.dataset.ready){v.dataset.ready='1';v.addEventListener('ended',()=>{state.answers.n1videoWatched=true;saveProgress();toast('Video đã kết thúc. Em hãy trả lời hai câu hỏi bên dưới nhé.')});v.addEventListener('error',()=>toast('Không tải được video thí nghiệm.'));}v.load()}
+function checkN1Video(){const r1=document.querySelector('input[name=n1videoq1]:checked'),r2=document.querySelector('input[name=n1videoq2]:checked');if(!r1||!r2){toast('Hãy trả lời đủ 2 câu hỏi.');return}state.answers.n1videoq1=r1.value;state.answers.n1videoq2=r2.value;const ok1=r1.value==='Thìa kim loại',ok2=r2.value==='A';$('n1videoq1fb').innerHTML=ok1?'<span class="ok">✓ Chính xác!</span>':'<span class="bad">Chưa đúng!</span> Hãy chú ý cán thìa nào nóng lên nhanh hơn.';['A','B','C'].forEach(x=>$('n1videoq2'+x).innerHTML=x===r2.value?(x==='A'?'<span class="ok">Chính xác!</span> Quan sát lớp sáp trên đầu thìa để biết thìa nào dẫn nhiệt tốt hơn.':'<span class="bad">Chưa đúng!</span> Hãy chú ý đến sự thay đổi của lớp sáp trên đầu thìa.'):'');if(ok1&&ok2){state.completed.add(10);saveProgress();document.querySelector('#s10 .btn').textContent='✓ Đã kiểm tra – đáp án đúng';enableNext(10)}}
+function finishN1Knowledge(){state.completed.add(11);saveProgress();document.querySelector('#s11 .btn').textContent='✓ Đã ghi nhớ';enableNext(11)}
+function checkN2T2(){const r=document.querySelector('input[name=n2t2]:checked');if(!r){toast('Em hãy chọn một đáp án.');return}state.answers.n2t2=r.value;const msgs={1:'<span class="bad">Thử suy nghĩ lại nhé!</span> Len dẫn nhiệt kém nên giúp hạn chế nhiệt từ cơ thể truyền ra môi trường lạnh, góp phần giữ ấm cho cơ thể.',2:'<span class="ok">Chính xác!</span> Len là vật liệu dẫn nhiệt kém, giúp hạn chế nhiệt từ cơ thể truyền ra môi trường bên ngoài, nhờ đó cơ thể giữ ấm tốt hơn.',3:'<span class="bad">Cùng tìm hiểu nhé!</span> Len dẫn nhiệt kém nên giúp hạn chế nhiệt từ cơ thể truyền ra môi trường lạnh, góp phần giữ ấm cho cơ thể.'};$('n2t2_'+r.value).innerHTML=msgs[r.value];if(r.value==='2'){state.completed.add(13);saveProgress();document.querySelector('#s13 .btn').textContent='✓ Đã kiểm tra – đáp án đúng';enableNext(13)}}
+function checkN2Q1(){const r=document.querySelector('input[name=n2q1]:checked');if(!r){toast('Em hãy chọn một phương án.');return}state.answers.n2q1=r.value;const fb=$('n2q1fb');if(r.value==='A'){fb.innerHTML='<span class="ok">✓ Chính xác!</span> Nhựa và gỗ dẫn nhiệt kém hơn kim loại nên giúp hạn chế nhiệt truyền đến tay.';state.completed.add(12);saveProgress();document.querySelector('#s12 .btn').textContent='✓ Đã kiểm tra – đáp án đúng';enableNext(12)}else{fb.innerHTML='<span class="bad">Chưa đúng.</span> Hãy nhớ: vật dẫn nhiệt kém truyền nhiệt chậm hơn.'}}
+function checkN2T3(){const r=document.querySelector('input[name=n2t3]:checked');if(!r){toast('Em hãy chọn vật liệu.');return}state.answers.n2t3=r.value;if(r.value==='Bông, xốp và vải len'){$('n2t3fb').innerHTML='<span class="ok">✓ Chính xác!</span> Đây là các vật liệu dẫn nhiệt kém, giúp làm chậm quá trình truyền nhiệt.';state.completed.add(14);saveProgress();document.querySelector('#s14 .btn').textContent='✓ Đã kiểm tra – đáp án đúng';enableNext(14)}else{$('n2t3fb').innerHTML='<span class="bad">Chưa phù hợp.</span> Kim loại dẫn nhiệt tốt nên không phải lựa chọn chính để giữ nhiệt.'}}
+function finishN2(){const v=$('n2reason').value.trim();if(!v){toast('Em hãy giải thích ngắn gọn 1–2 câu nhé.');return}state.answers.n2reason=v;state.completed.add(15);saveProgress();$('n2done').style.display='block';document.querySelector('#s15 .btn').textContent='✓ Đã ghi nhận câu trả lời';enableNext(15)}
+function recordChallenge(k,next){let v;if(k===2)v=$('ch2').value.trim();else{const r=document.querySelector('input[name=ch'+k+']:checked');v=r?r.value:''}if(!v){toast('Em hãy trả lời câu hỏi trước nhé.');return}state.answers['challenge'+k]=v;state.completed.add(current);saveProgress();show(next,true)}
+function savePred(name,next,fb){const r=document.querySelector('input[name='+name+']:checked');if(!r){toast('Em hãy chọn một dự đoán.');return}state.answers[name]=r.value;$(fb).innerHTML='<span class="ok">✓ Đã ghi nhận dự đoán.</span>';state.completed.add(current);saveProgress();setTimeout(()=>completeTo(next),250)}
+function quiz(name,ans,fb,next){
+  const r=document.querySelector('input[name='+name+']:checked');
+  if(!r){toast('Hãy chọn một đáp án.');return}
+  const ok=r.value===ans;
+  state.answers[name]=r.value;
+  if(ok){
+    $(fb).innerHTML='<span class="ok">✓ Chính xác!</span><div class="explain">'+explain(name,true)+'</div>';
+    document.querySelectorAll('input[name='+name+']').forEach(i=>i.disabled=true);
+    state.completed.add(current); saveProgress();
+    if(name==='t3q')$('t3conclusion').style.display='block';
+    document.querySelector('#s'+current+' .btn').textContent='✓ Đã kiểm tra – đáp án đúng';
+    enableNext(current,'Tiếp tục ›');
+  }else{
+    $(fb).innerHTML='<span class="bad">✗ Chưa chính xác.</span> Hãy suy nghĩ và thử lại nhé.<div class="explain">'+explain(name,false)+'</div>';
+  }
+}
+function explain(name,ok){if(name==='t3q')return 'Vỏ ngoài giúp định hình; xốp hoặc bông làm chậm truyền nhiệt; giấy bạc hỗ trợ ở lớp lót.';return ''}
+function t1CompareChanged(){}
+function t1Set(){}
+function t1Start(){}
+function t1Pause(){}
+function t1Reset(){}
+function t2Run(){}
+const mats=[];let picked=null;
+function renderMaterials(){}
+function placeMaterial(){}
+function returnMaterial(){}
+function checkClass(){}
+let seenLayers=new Set();function showLayer(el,title,role,materials){seenLayers.add(title);document.querySelectorAll('.layer').forEach(x=>x.classList.remove('active'));el.classList.add('active');$('layerDetail').innerHTML='<b>'+title+'</b><br>'+role+'<br><b>Vật liệu gợi ý:</b> '+materials+(title.includes('Lớp lót')?'<br><span class="warning">💡 Giấy bạc làm lớp lót bên trong, giúp phản xạ một phần nhiệt và hỗ trợ hạn chế trao đổi nhiệt.</span>':'');if(seenLayers.size===3){state.completed.add(16);saveProgress();$('layerNext').textContent='✓ Đã khám phá đủ 3 lớp';enableNext(16)}}
+function saveIdea1(){const o=document.querySelector('input[name=outer]:checked'),i=document.querySelector('input[name=insul]:checked'),c=document.querySelector('input[name=close]:checked');if(!o||!i||!c){toast('Em hãy chọn đủ vỏ ngoài, lớp giữ nhiệt và cách đóng – mở.');return}state.idea.outer=o.value;state.idea.insul=i.value;state.idea.close=c.value;state.completed.add(18);saveProgress();document.querySelector('#s18 .btn').textContent='✓ Đã ghi nhận lựa chọn';enableNext(18);renderChosen()}
+let selectedLayer=null;
+function renderChosen(){
+  selectedLayer=null;
+  document.querySelectorAll('#s19 .material-btn').forEach(x=>x.classList.remove('picked'));
+  document.querySelectorAll('#s19 .layer').forEach(x=>x.classList.remove('active'));
+  const labels={outer:'Bìa carton',insul:'Xốp hơi',inner:'Giấy bạc'};
+  ['outer','insul','inner'].forEach(slot=>{
+    const el=$('placed'+slot.charAt(0).toUpperCase()+slot.slice(1));
+    if(el)el.textContent=state.layers[slot]?'✓ '+state.layers[slot]:'Chưa đặt';
+    if(state.layers[slot])document.querySelector('#s19 .layer[data-slot="'+slot+'"]')?.classList.add('active');
+  });
+  $('selectedMaterial').innerHTML=state.completed.has(19)?'✓ Đã ghi nhận cách sắp xếp.':'Hãy chạm chọn một vật liệu ở trên.';
+  if(state.completed.has(19))enableNext(19);
+}
+function selectMaterial(slot,el){
+  selectedLayer=slot;
+  document.querySelectorAll('#s19 .material-btn').forEach(x=>x.classList.remove('picked'));
+  el.classList.add('picked');
+  const names={outer:'Vỏ: Bìa carton',insul:'Giữ nhiệt: Xốp hơi',inner:'Lót: Giấy bạc'};
+  $('selectedMaterial').innerHTML='✓ Đã chọn <b>'+names[slot]+'</b>. Bây giờ chạm vào vị trí lớp muốn đặt.';
+}
+function placeLayer(slot,el){
+  if(!selectedLayer){
+    $('layerOrderFb').innerHTML='<span class="bad">Hãy chọn vật liệu trước.</span>';
+    return;
+  }
+  if(state.layers[slot]){
+    $('layerOrderFb').innerHTML='<span class="bad">Vị trí này đã có vật liệu. Hãy chọn vị trí còn lại.</span>';
+    return;
+  }
+  const material=selectedLayer==='outer'?'Bìa carton':selectedLayer==='insul'?'Xốp hơi':'Giấy bạc';
+  if(selectedLayer!==slot){
+    $('layerOrderFb').innerHTML='<span class="bad">Vật liệu này chưa đúng vị trí. Hãy chọn đúng vị trí tương ứng.</span>';
+    return;
+  }
+  state.layers[slot]=material;
+  document.querySelectorAll('#s19 .layer').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  const id='placed'+slot.charAt(0).toUpperCase()+slot.slice(1);
+  $(id).textContent='✓ '+material;
+  $('layerOrderFb').innerHTML='<span class="ok">✓ Đã đặt '+material+' vào đúng vị trí.</span>';
+  selectedLayer=null;
+  document.querySelectorAll('#s19 .material-btn').forEach(x=>x.classList.remove('picked'));
+  $('selectedMaterial').innerHTML='Đã đặt xong. Chạm chọn vật liệu tiếp theo.';
+  saveProgress();
+}
+function saveIdea2(){
+  if(!state.layers.outer||!state.layers.insul||!state.layers.inner){
+    toast('Em hãy đặt đủ 3 vật liệu vào đúng 3 vị trí.');
+    return;
+  }
+  state.completed.add(19);
+  saveProgress();
+  $('layerOrderFb').innerHTML='<span class="ok">✓ Đã ghi nhận cách sắp xếp.</span>';
+  $('saveIdea2Btn').textContent='✓ Đã ghi nhận sắp xếp';
+  enableNext(19);
+}
+function finishIdea(){const r=$('reason').value.trim();if(!r){toast('Em hãy viết 1–2 câu giải thích cho ý tưởng.');return}state.idea.reason=r;state.completed.add(20);saveProgress();document.querySelector('#s20 .btn').textContent='✓ Đã ghi nhận ý tưởng';enableNext(20);}
+function result(){return JSON.stringify({hoc_sinh:state.name,tra_loi_thu_thach:state.answers,vat_lieu:state.idea,thu_tu_lop:state.layers},null,2)}
+function downloadResult(){const blob=new Blob([result()],{type:'application/json;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ket_qua_STEM_'+(state.name||'hoc_sinh')+'.json';a.click();URL.revokeObjectURL(a.href)}
+async function shareResult(){const text='Kết quả STEM – Vật dẫn nhiệt tốt, vật dẫn nhiệt kém\nHọc sinh: '+state.name+'\nVỏ ngoài: '+state.idea.outer+'\nLớp giữ nhiệt: '+state.idea.insul+'\nLớp lót: Giấy bạc\nCách đóng – mở: '+state.idea.close+'\nLí do: '+state.idea.reason;if(navigator.share){try{await navigator.share({title:'Kết quả STEM',text})}catch(e){}}else{downloadResult();toast('Thiết bị chưa hỗ trợ chia sẻ trực tiếp; kết quả đã được xuất thành tệp.')}}
+function addBackButton(n){const sec=$('s'+n);if(!sec||n===1)return;let b=sec.querySelector('.back-btn');if(b)return;const map={2:1,3:2,6:3,7:6,8:7,9:8,10:9,11:10,12:11,13:12,14:13,15:14,16:15,17:16,18:17,19:18,20:19,21:20};const prev=map[n];if(!prev)return;b=document.createElement('button');b.className='btn secondary back-btn';b.textContent='← Quay lại';b.onclick=()=>show(prev);sec.insertBefore(b,sec.firstChild)}
+function go(n){if(n===1){show(1);return}if(state.completed.has(n))show(n);else toast('Em hãy hoàn thành các trang trước đó nhé.')}
+function toast(t){let x=document.getElementById('toast');if(!x){x=document.createElement('div');x.id='toast';x.style='position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#17324d;color:white;padding:12px 16px;border-radius:12px;z-index:99;max-width:90%;text-align:center';document.body.appendChild(x)}x.textContent=t;x.style.display='block';clearTimeout(window.toastT);window.toastT=setTimeout(()=>x.style.display='none',2300)}
+function saveProgress(){try{localStorage.setItem('stemProgressV7',JSON.stringify({name:state.name,completed:[...state.completed],answers:state.answers,idea:state.idea,layers:state.layers}))}catch(e){}}
+function loadProgress(){try{const x=JSON.parse(localStorage.getItem('stemProgressV7'));if(x){state.name=x.name||'';state.completed=new Set(Array.isArray(x.completed)?x.completed:[]);Object.assign(state.answers,x.answers||{});Object.assign(state.idea,x.idea||{});Object.assign(state.layers,x.layers||{});if($('studentName'))$('studentName').value=state.name;setBadges()}}catch(e){state.name='';state.completed=new Set();state.answers={};state.idea={};state.layers={};if($('studentName'))$('studentName').value=''}}
+$('studentName')?.addEventListener('keydown',e=>{if(e.key==='Enter')start()});loadProgress();setBadges();updateStageNav();prepareNextButtons();
+</script></body></html>
